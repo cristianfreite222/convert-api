@@ -11,47 +11,39 @@ function parseNumber(v) {
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'API de conversión: usa /convert/celsius-to-fahrenheit/:value, /convert/fahrenheit-to-celsius/:value, /convert/km-to-miles/:value'
+    message: 'API de conversión: usa /convert?from=celsius&to=fahrenheit&values=25,30'
   });
 });
 
 
-app.get('/convert/celsius-to-fahrenheit/:value', (req, res) => {
-  const c = parseNumber(req.params.value);
-  if (c === null) return res.status(400).json({ error: 'Valor inválido. Usa un número.' });
+app.get('/convert', (req, res) => {
+  const { from, to, values } = req.query;
 
-  const f = (c * 9 / 5) + 32;
-  res.json({
-    input: `${c} °C`,
-    output: Number(f.toFixed(6)),
-    formula: 'F = C * 9/5 + 32'
+  if (!from || !to || !values) {
+    return res.status(400).json({ error: 'Faltan parámetros. Usa from, to y values' });
+  }
+
+  
+  const numbers = values.split(',').map(parseNumber).filter(n => n !== null);
+  if (numbers.length === 0) return res.status(400).json({ error: 'Valores inválidos' });
+
+  
+  const convert = (from, to, n) => {
+    switch (`${from}->${to}`) {
+      case 'celsius->fahrenheit': return (n * 9/5) + 32;
+      case 'fahrenheit->celsius': return (n - 32) * 5/9;
+      case 'km->miles': return n * 0.621371;
+      default: return null;
+    }
+  };
+
+  const results = numbers.map(n => {
+    const output = convert(from.toLowerCase(), to.toLowerCase(), n);
+    if (output === null) return { input: n, error: 'Conversión no soportada' };
+    return { input: n, output: Number(output.toFixed(6)) };
   });
-});
 
-
-app.get('/convert/fahrenheit-to-celsius/:value', (req, res) => {
-  const f = parseNumber(req.params.value);
-  if (f === null) return res.status(400).json({ error: 'Valor inválido. Usa un número.' });
-
-  const c = (f - 32) * 5 / 9;
-  res.json({
-    input: `${f} °F`,
-    output: Number(c.toFixed(6)),
-    formula: 'C = (F - 32) * 5/9'
-  });
-});
-
-
-app.get('/convert/km-to-miles/:value', (req, res) => {
-  const km = parseNumber(req.params.value);
-  if (km === null) return res.status(400).json({ error: 'Valor inválido. Usa un número.' });
-
-  const miles = km * 0.621371;
-  res.json({
-    input: `${km} km`,
-    output: Number(miles.toFixed(6)),
-    formula: 'miles = km * 0.621371'
-  });
+  res.json(results);
 });
 
 
